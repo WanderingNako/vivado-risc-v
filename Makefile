@@ -4,15 +4,15 @@ ifneq (,$(wildcard workspace/config))
 include workspace/config
 endif
 
-BOARD ?= nexys-video
-CONFIG ?= rocket64b2
+BOARD ?= genesys2
+CONFIG ?= Rocket64x1
 HW_SERVER_ADDR ?= localhost:3121
 JAVA_OPTIONS ?=
 CFG_FORMAT ?= mcs
 
 include board/$(BOARD)/Makefile.inc
 
-all: bitstream
+all: clean-boom bitstream
 
 # --- docker ---------------
 
@@ -63,6 +63,10 @@ clean-submodules:
 
 clean-sbt:
 	rm -rf ~/.cache ~/.config/jgit ~/.ivy2 ~/.sbt
+
+clean-boom:
+	rm -rf workspace/patch-*-done
+	rm -rf workspace/Rocket64x1
 
 clean:
 	rm -rf workspace/patch-*-done
