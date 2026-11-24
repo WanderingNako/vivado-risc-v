@@ -4,14 +4,14 @@
 
 This repository builds RISC-V SoCs for AMD/Xilinx FPGAs. The Chisel SoC and core configurations live in `src/main/scala/rocket.scala`. Board-specific Make settings, Vivado scripts, pin constraints, and boot ROM device trees live under `board/<board>/`. Shared integration is in `vivado.tcl`, with peripheral RTL in `uart/`, `sdc/`, and `ethernet/` and wrapper tooling in `vhdl-wrapper/`.
 
-Firmware lives in `bootrom/`, and `bare-metal/hello-world/` provides a hardware smoke test. Keep integration changes for upstream dependencies in `patches/` where applicable. See `docs/` for setup and flash instructions. Keep generated Vivado projects, bitstreams, and other build output under the ignored `workspace/` directory.
+Firmware lives in `bootrom/`, and `bare-metal/hello-world/` provides a hardware smoke test. See `docs/` for setup and flash instructions. Keep generated Vivado projects, bitstreams, and other build output under the ignored `workspace/` directory.
 
 ## Build and Development
 
 Use the Vivado/Vitis version and board files described in `README.md`.
 
 - `make update-submodules` initializes dependencies. Add `SKIP_SOFT=1` for FPGA-only work.
-- `make BOARD=genesys2 CONFIG=Rocket64x1 bitstream` builds the FPGA bitstream and flash image. Use the same board and configuration with `vivado-gui` to inspect the block design.
+- `make BOARD=genesys2 CONFIG=Rocket64x1 bitstream` or `make` builds the FPGA bitstream and flash image. Use the same board and configuration with `vivado-gui` to inspect the block design.
 - `make linux bootloader` builds the Linux kernel and the OpenSBI payload with U-Boot.
 - `make -C bare-metal/hello-world clean all` builds the smoke-test firmware. See `bare-metal/README.md` for cross-compiler and debugger setup.
 
