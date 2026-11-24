@@ -222,7 +222,7 @@ CHISEL_SRC_DIRS = \
   src/main \
   rocket-chip/src/main \
   rocket-chip/macros/src/main \
-  rocket-chip/hardfloat/src/main \
+  rocket-chip/dependencies/hardfloat/hardfloat/src/main \
   generators/gemmini/src/main \
   generators/riscv-boom/src/main \
   generators/sifive-cache/design/craft \
