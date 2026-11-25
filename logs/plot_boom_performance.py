@@ -10,7 +10,6 @@ from matplotlib.backends.backend_pdf import PdfPages
 from matplotlib.ticker import FuncFormatter
 
 log_dir = Path("logs/perf_analysis")
-core = Path("generators/riscv-boom/src/main/scala/v3/exu/core.scala")
 samples = {}
 for path in sorted(log_dir.iterdir()):
     if not path.is_file():
@@ -32,7 +31,8 @@ for path in sorted(log_dir.iterdir()):
     assert events[3] <= events[2] and events[6] <= events[5], path
     assert events[30] <= events[26] and events[34] <= events[33], path
     samples[path.name] = events
-assert len(samples) == 19
+if not samples:
+    raise SystemExit(f"No benchmark log files found in {log_dir}")
 
 metrics = []
 def ratio(title, numerator, denominator, unit="%", detail="", subtract=None):
@@ -89,7 +89,9 @@ for stage, base, misses in [("Execution", 39, 43), ("Retirement", 49, 53)]:
 for title, event in [("F1", 8), ("F2", 9), ("F3", 10), ("Core", 11)]:
     ratio(f"Next-PC source {title} events per cycle", event, 0, "events / cycle")
 
+# Event map for the BOOM v3 build that produced the logs in perf_analysis.
 labels = {
+    0: "Counter-enabled cycles",
     1: "Architecturally retired instructions",
     2: "Valid I-cache S2 accesses",
     3: "I-cache hit responses",
@@ -97,12 +99,17 @@ labels = {
     5: "Valid ITLB requests",
     6: "Valid ITLB requests without frontend miss flag",
     7: "ITLB page-walk requests",
+    8: "Next-PC source F1 events",
+    9: "Next-PC source F2 events",
+    10: "Next-PC source F3 events",
+    11: "Next-PC source core events",
     12: "Fetch buffer zero-output cycles",
     13: "Fetch buffer full-output cycles",
     14: "Fetch buffer partial-output cycles",
     15: "Decode zero-output cycles",
     16: "Decode full-output cycles",
     17: "Decode partial-output cycles",
+    18: "Branch mask full cycles",
     19: "Rename stalled lane observations",
     20: "Dispatch zero-output cycles",
     21: "Dispatch full-output cycles",
@@ -115,24 +122,41 @@ labels = {
     28: "Integer and memory full-issue cycles",
     29: "Integer and memory partial-issue cycles",
     30: "Issued uops with failed speculative wakeup",
+    31: "Execution requests using the load queue",
+    32: "Execution requests using the store queue",
     33: "Valid DTLB request lanes",
     34: "DTLB miss or not-ready request lanes",
     35: "DTLB page-walk requests",
     36: "Accepted LSU-to-D-cache request lanes",
     37: "D-cache load/store NACKs",
     38: "D-cache lower-level TileLink A transaction completions",
+    39: "Executed conditional branches",
+    40: "Executed JALRs",
+    41: "Executed return-pattern JALRs",
+    42: "Executed call-pattern JALRs",
+    43: "Conditional branch mispredictions at execution",
+    44: "JALR mispredictions at execution",
+    45: "Return-pattern JALR mispredictions at execution",
+    46: "Call-pattern JALR mispredictions at execution",
+    47: "Retired instructions using the load queue",
+    48: "Retired instructions using the store queue",
+    49: "Retired conditional branches",
+    50: "Retired JALRs",
+    51: "Retired return-pattern JALRs",
+    52: "Retired call-pattern JALRs",
+    53: "Conditional branch mispredictions at retirement",
+    54: "JALR mispredictions at retirement",
+    55: "Return-pattern JALR mispredictions at retirement",
+    56: "Call-pattern JALR mispredictions at retirement",
+    57: "L2 TLB misses",
     58: "Misaligned load/store exceptions",
     59: "Load/store page faults",
     60: "Fetch page faults",
     61: "Memory-ordering mini-exceptions",
     62: "ROB rollback cycles",
 }
-comments = {int(n): label.strip() for n, label in re.findall(
-    r"event_counters\.io\.event_signals\((\d+)\) := [^\n]*?//([^\n]+)", core.read_text()
-)}
-assert set(comments) == set(range(63))
 raw = [
-    (f"E{i:02d}  {labels.get(i, comments[i])}", "raw count", f"E{i}",
+    (f"E{i:02d}  {labels[i]}", "raw count", f"E{i}",
      "Raw event total in the counter sampling window.", [e[i] for e in samples.values()])
     for i in range(63)
 ]
@@ -151,7 +175,7 @@ def sheet(pdf, heading, groups, page):
             fig.text(.065, y, line, fontsize=11, color="#253850")
             y -= .032
         y -= .026
-    fig.text(.065, .053, f"BOOM v3  /  logs/logs  /  {page}", fontsize=9, color="#415570")
+    fig.text(.065, .053, f"BOOM v3  /  {log_dir}  /  {page}", fontsize=9, color="#415570")
     pdf.savefig(fig)
     plt.close(fig)
 
@@ -163,7 +187,7 @@ def chart(pdf, metric, section, page):
     fig.text(.065, .885, f"Formula  {formula}", fontsize=11, color="#17496b")
     if detail:
         fig.text(.065, .853, detail, fontsize=9.7, color="#415570")
-    fig.text(.065, .045, f"{section}  /  logs/logs  /  {page}", fontsize=9, color="#415570")
+    fig.text(.065, .045, f"{section}  /  {log_dir}  /  {page}", fontsize=9, color="#415570")
     ax.set_facecolor("#f8fafc")
     ax.set_yticks(range(len(samples)), list(samples))
     ax.invert_yaxis()
@@ -189,7 +213,7 @@ def chart(pdf, metric, section, page):
 
 with PdfPages(output, metadata={"Title": "BOOM v3 benchmark performance counters"}) as pdf:
     sheet(pdf, "BOOM v3 benchmark performance", [
-        ("Coverage", [f"{len(samples)} benchmarks from logs/logs. Each chart covers every benchmark in benchmark ID order.",
+        ("Coverage", [f"{len(samples)} benchmarks from {log_dir}. Each chart covers every benchmark in benchmark ID order.",
           f"Derived metrics on pages 3–{2 + len(metrics)}. Raw events E0–E62 on pages {3 + len(metrics)}–{2 + len(metrics) + len(raw)}.",
           "E63 has no assigned event and is zero in all logs. N/A indicates a zero denominator."]),
         ("Sampling and IPC", ["E<n> denotes the logged event counter. Each 64-bit counter adds its per-cycle increment.",
@@ -202,7 +226,7 @@ with PdfPages(output, metadata={"Title": "BOOM v3 benchmark performance counters
           "E27 shows cycles with no integer or memory issue port valid. It measures issue starvation",
           "or other zero-issue conditions. Per-execution-unit idle cycles require per-unit busy signals.",
           "The issue signals omit the separate FP issue path. E26 counts pre-cancellation issue uops."]),
-        ("Source", ["generators/riscv-boom/src/main/scala/v3/exu/core.scala and exu/event_counter.scala",
+        ("Source", ["Event map from the instrumented BOOM v3 exu/core.scala used to collect the logs.",
           "Cache and TLB signal definitions in ifu/icache.scala, ifu/frontend.scala, lsu/lsu.scala and lsu/dcache.scala"]),
     ], 1)
     sheet(pdf, "Cache, TLB and pipeline definitions", [
@@ -216,7 +240,7 @@ with PdfPages(output, metadata={"Title": "BOOM v3 benchmark performance counters
           "DTLB miss or backpressure rate is E34 / E33. E34 includes valid requests with ready low.",
           "E7 and E35 count PTW request handshakes. E57 is the PTW L2 TLB miss signal."]),
         ("Pipeline and branches", ["Zero, full and partial cycle shares use E0. Groups E12–E14, E15–E17, E20–E22 and E27–E29",
-          "each sum to E0 in all 19 logs. Rename and queue stall counters can add multiple lanes per cycle.",
+          f"each sum to E0 in all {len(samples)} logs. Rename and queue stall counters can add multiple lanes per cycle.",
           "Branch ratios pair E43–E46 with E39–E42 at execution and E53–E56 with E49–E52 at retirement.",
           "Execution uses resolution-side mispredict pulses over execution requests. Retirement uses debug_fsrc.",
           "Returns and calls are JALR register-pattern subsets, so their counts overlap total JALR."]),
